@@ -44,6 +44,10 @@ public class JGitHelper {
 
     protected String REPO_PATH;
 
+    public String getRepoPath(){
+        return REPO_PATH;
+    }
+
 
     public JGitHelper(String repoPath) {
         REPO_PATH = repoPath;
@@ -60,6 +64,54 @@ public class JGitHelper {
             log.error(e.getMessage());
         }
 
+    }
+
+    public boolean checkout(String commit) {
+
+        try {
+            initCheckOut(commit);
+            return true;
+        } catch (Exception e) {
+            log.error("JGitHelper checkout error:{} ", e.getMessage());
+            log.error("begin second checkout {}", commit);
+            try {
+                // clean for checkOut
+                secondCheckOut(commit);
+                return true;
+            } catch (Exception e2) {
+                log.error("second checkout error:{} ", e2.getMessage());
+            }
+
+        }
+        return false;
+    }
+
+    private void initCheckOut(String commit) throws IOException, GitAPIException {
+        // 不加上这一句  有新增和删除的情况还是会成功
+        git.reset().setMode(ResetCommand.ResetType.HARD).call();
+
+        if (commit == null) {
+            commit = repository.getBranch();
+        }
+        CheckoutCommand checkoutCommand = git.checkout();
+        checkoutCommand.setName(commit).call();
+    }
+
+    private void secondCheckOut(String commit) throws GitAPIException, IOException {
+        // check index.lock
+        File lock = new File(IS_WINDOWS ? REPO_PATH + "\\.git\\index.lock" : REPO_PATH + "/.git/index.lock");
+        if (lock.exists() && lock.delete()) {
+            log.error("repo[{}] index.lock exists, deleted! ", REPO_PATH);
+        }
+
+
+        git.reset().setMode(ResetCommand.ResetType.HARD).call();
+
+        // check modify
+        git.add().addFilepattern(".").call();
+        git.stashCreate().call();
+
+        initCheckOut(commit);
     }
 
     @SneakyThrows
