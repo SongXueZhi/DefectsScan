@@ -7,6 +7,8 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ResetCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.*;
+import org.eclipse.jgit.errors.IncorrectObjectTypeException;
+import org.eclipse.jgit.errors.MissingObjectException;
 import org.eclipse.jgit.lib.*;
 import org.eclipse.jgit.patch.FileHeader;
 import org.eclipse.jgit.patch.HunkHeader;
@@ -79,38 +81,78 @@ public class JGitHelper {
         return rd.compute();
     }
 
-
-    public DiffFile getDiffFilePair(String preCommitId, String commitId) {
-
+    public DiffFile getAllDiffFilePair(String commit) {
         List<String> addFiles = new ArrayList<>(8);
         List<String> deleteFiles = new ArrayList<>(8);
         Map<String, String> changeFiles = new HashMap<>(32);
+        try{
+            RevCommit currCommit = revWalk.parseCommit(ObjectId.fromString(commit));
+            RevCommit[] parentCommits = currCommit.getParents();
 
-
-        //init git diff
-        CanonicalTreeParser oldTreeDiff = new CanonicalTreeParser();
-        CanonicalTreeParser newTreeDiff = new CanonicalTreeParser();
-        try (ObjectReader reader = repository.newObjectReader()) {
-            //get diff tree
-            oldTreeDiff.reset(reader, repository.resolve(preCommitId + "^{tree}"));
-            newTreeDiff.reset(reader, repository.resolve(commitId + "^{tree}"));
-            //call git diff command
-            List<DiffEntry> diffs = getDiffEntry(getRevCommit(preCommitId), getRevCommit(commitId), 60);
-            for (DiffEntry diff : diffs) {
-                switch (diff.getChangeType()) {
-                    case ADD:
-                        addFiles.add(diff.getNewPath());
-                        break;
-                    case DELETE:
-                        deleteFiles.add(diff.getOldPath());
-                        break;
-                    default:
-                        changeFiles.put(diff.getOldPath(), diff.getNewPath());
+            for(RevCommit p : parentCommits){
+                CanonicalTreeParser oldTreeDiff = new CanonicalTreeParser();
+                CanonicalTreeParser newTreeDiff = new CanonicalTreeParser();
+                try (ObjectReader reader = repository.newObjectReader()) {
+                    //get diff tree
+                    oldTreeDiff.reset(reader, repository.resolve(p.getName() + "^{tree}"));
+                    newTreeDiff.reset(reader, repository.resolve(commit + "^{tree}"));
+                    //call git diff command
+                    List<DiffEntry> diffs = getDiffEntry(getRevCommit(p.getName()), getRevCommit(commit), 60);
+                    for (DiffEntry diff : diffs) {
+                        switch (diff.getChangeType()) {
+                            case ADD:
+                                addFiles.add(diff.getNewPath());
+                                break;
+                            case DELETE:
+                                deleteFiles.add(diff.getOldPath());
+                                break;
+                            default:
+                                changeFiles.put(diff.getOldPath(), diff.getNewPath());
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("get diff file failed!pre commit is: {}, cur commit is: {}", p, commit);
                 }
             }
-        } catch (Exception e) {
-            log.error("get diff file failed!pre commit is: {}, cur commit is: {}", preCommitId, commitId);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         return new DiffFile(addFiles, deleteFiles, changeFiles);
+
     }
+
+
+//    public DiffFile getDiffFilePair(String preCommitId, String commitId) {
+//
+//        List<String> addFiles = new ArrayList<>(8);
+//        List<String> deleteFiles = new ArrayList<>(8);
+//        Map<String, String> changeFiles = new HashMap<>(32);
+//
+//
+//        //init git diff
+//        CanonicalTreeParser oldTreeDiff = new CanonicalTreeParser();
+//        CanonicalTreeParser newTreeDiff = new CanonicalTreeParser();
+//        try (ObjectReader reader = repository.newObjectReader()) {
+//            //get diff tree
+//            oldTreeDiff.reset(reader, repository.resolve(preCommitId + "^{tree}"));
+//            newTreeDiff.reset(reader, repository.resolve(commitId + "^{tree}"));
+//            //call git diff command
+//            List<DiffEntry> diffs = getDiffEntry(getRevCommit(preCommitId), getRevCommit(commitId), 60);
+//            for (DiffEntry diff : diffs) {
+//                switch (diff.getChangeType()) {
+//                    case ADD:
+//                        addFiles.add(diff.getNewPath());
+//                        break;
+//                    case DELETE:
+//                        deleteFiles.add(diff.getOldPath());
+//                        break;
+//                    default:
+//                        changeFiles.put(diff.getOldPath(), diff.getNewPath());
+//                }
+//            }
+//        } catch (Exception e) {
+//            log.error("get diff file failed!pre commit is: {}, cur commit is: {}", preCommitId, commitId);
+//        }
+//        return new DiffFile(addFiles, deleteFiles, changeFiles);
+//    }
 }
