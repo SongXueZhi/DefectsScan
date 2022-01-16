@@ -7,17 +7,13 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ResetCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.*;
-import org.eclipse.jgit.errors.IncorrectObjectTypeException;
-import org.eclipse.jgit.errors.MissingObjectException;
 import org.eclipse.jgit.lib.*;
-import org.eclipse.jgit.patch.FileHeader;
-import org.eclipse.jgit.patch.HunkHeader;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.TreeWalk;
-import org.eclipse.jgit.util.io.DisabledOutputStream;
+
 
 import java.io.File;
 import java.io.IOException;
@@ -171,6 +167,14 @@ public class JGitHelper {
         }
         return new DiffFile(addFiles, deleteFiles, changeFiles);
 
+    }
+    public List<String> getFilesToScan(String commit){
+        DiffFile diffFile = getAllDiffFilePair(commit);
+        List<String> filesToScan = new ArrayList<>();
+        filesToScan.addAll(diffFile.getAddFiles());
+        filesToScan.addAll(diffFile.getChangeFiles().values());
+
+        return filesToScan;
     }
 
 

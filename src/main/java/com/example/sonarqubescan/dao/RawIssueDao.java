@@ -1,6 +1,6 @@
 package com.example.sonarqubescan.dao;
 
-import com.example.sonarqubescan.Mapper.RawIssueMapper;
+import com.example.sonarqubescan.mapper.RawIssueMapper;
 import com.example.sonarqubescan.domin.dbo.RawIssue;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;

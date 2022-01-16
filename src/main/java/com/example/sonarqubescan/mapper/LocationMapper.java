@@ -1,4 +1,4 @@
-package com.example.sonarqubescan.Mapper;
+package com.example.sonarqubescan.mapper;
 
 import com.example.sonarqubescan.domin.dbo.Location;
 import org.springframework.stereotype.Repository;

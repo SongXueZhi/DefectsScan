@@ -3,21 +3,21 @@ package com.example.sonarqubescan.scan;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.example.sonarqubescan.component.RestInterfaceManager;
+import com.example.sonarqubescan.dao.LocationDao;
 import com.example.sonarqubescan.dao.RawIssueDao;
 import com.example.sonarqubescan.domin.dbo.Location;
 import com.example.sonarqubescan.domin.dbo.RawIssue;
 import com.example.sonarqubescan.domin.enums.ScanStatusEnum;
 import com.example.sonarqubescan.jGitHelper.JGitHelper;
-import com.example.sonarqubescan.utils.AstUtil;
-import com.example.sonarqubescan.utils.CompileUtil;
-import com.example.sonarqubescan.utils.DirExplorer;
-import com.example.sonarqubescan.utils.ShUtil;
+import com.example.sonarqubescan.utils.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import javax.xml.bind.DatatypeConverter;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,29 +33,25 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class Analyzer {
 
-
-
-
     private static RestInterfaceManager restInterfaceManager;
     private static RawIssueDao rawIssueDao;
+    private LocationDao locationDao;
 
     protected List<RawIssue> resultRawIssues = new ArrayList<>();
 
     @Value("${binHome}")
     private String binHome;
 
+
     private static final String COMPONENT = "component";
-
-    private static final String TOOL_NAME = "sonarqube";
-
 
 
     public boolean invoke(String repoUuid, String repoPath, String commit) {
-        return ShUtil.executeCommand(binHome + "executeSonar.sh " + repoPath + " " + repoUuid + "_" + commit + " " + commit, 300);
+        return ShUtil.executeCommand(binHome + "executeSonar.sh " + repoPath + "_copy " + repoUuid + "_" + commit + " " + commit, 300);
     }
 
 
-    public ScanStatusEnum compileAndInvokeTool(String repoPath, String repoUuid, String commit) {
+    public void compileAndInvokeTool(String repoPath, String repoUuid, String commit, JGitHelper jGitHelper) {
 
         // 后续增量编译可以删除
         DirExplorer.deleteRedundantTarget(repoPath);
@@ -63,18 +59,38 @@ public class Analyzer {
         long startTime = System.currentTimeMillis();
         if (!CompileUtil.isCompilable(repoPath, repoUuid, commit)) {
             log.error("compile failed!repo path is {}, commit is {}", repoPath, commit);
-            return ScanStatusEnum.COMPILE_FAILED;
+            return;
         }
         long compileTime = System.currentTimeMillis();
         log.info("compile time use {} s, compile success!", (compileTime - startTime) / 1000);
-
+        List<String> fileToScan = jGitHelper.getFilesToScan(commit);
+        List<String> targetFileToScans = new ArrayList<>();
+        for(String file : fileToScan){
+            String secondPrefix = "target/classes";
+            StringBuilder sb = new StringBuilder(secondPrefix);
+            String firstPrefix = "src/main/java";
+            String fileName = StringUtil.removePrefix(file, firstPrefix);
+            sb.append(fileName);
+            targetFileToScans.add(sb.toString());
+        }
+        File newRepo = new File(repoPath + "_copy/");
+        if(newRepo.mkdir()){
+            log.info("make repo_copy success "+ repoPath);
+        }
+        for(String file : targetFileToScans){
+            String filePath  = newRepo.getAbsolutePath();
+            File newFilePath = new File(filePath + file);
+            if(newRepo.mkdir()){
+                log.info("make file success" + filePath + file) ;
+            }
+        }
 
         //2 invoke tool
         long invokeToolStartTime = System.currentTimeMillis();
         boolean invokeToolResult = invoke(repoUuid, repoPath, commit);
         if (!invokeToolResult) {
             log.info("invoke tool failed!repo path is {}, commit is {}", repoPath, commit);
-            return ScanStatusEnum.INVOKE_TOOL_FAILED;
+            return;
         }
         long invokeToolTime = System.currentTimeMillis();
         log.info("invoke tool use {} s,invoke tool success!", (invokeToolTime - invokeToolStartTime) / 1000);
@@ -84,14 +100,14 @@ public class Analyzer {
         boolean analyzeResult = analyze(repoPath, repoUuid, commit);
         if (!analyzeResult) {
             log.error("analyze raw issues failed!repo path is {}, commit is {}", repoPath, commit);
-            return ScanStatusEnum.ANALYZE_FAILED;
+            return;
         }
         long analyzeToolTime = System.currentTimeMillis();
         log.info("analyze raw issues use {} s, analyze success!", (analyzeToolTime - invokeToolTime) / 1000);
 
+        File fileDuplicate = new File(repoPath + "_copy");
+        FileUtil.deleteFile(fileDuplicate);
 
-        // 结果放到了 result rawIssue 中
-        return ScanStatusEnum.DONE;
     }
 
     public boolean analyze(String repoPath, String repoUuid, String commit) {
@@ -145,7 +161,6 @@ public class Analyzer {
 
     private void deleteSonarProject(String projectName) {
         try {
-
             Runtime rt = Runtime.getRuntime();
             String command = binHome + "deleteSonarProject.sh " + projectName + " " + DatatypeConverter.printBase64Binary((restInterfaceManager.sonarLogin + ":" + restInterfaceManager.sonarPassword).getBytes(StandardCharsets.UTF_8));
             log.info("command -> {}", command);
@@ -159,6 +174,7 @@ public class Analyzer {
 
 
     private boolean getSonarResult(String repoUuid, String commit, String repoPath) {
+
         //获取issue数量
         JSONObject sonarIssueResult = restInterfaceManager.getSonarIssueResults(repoUuid + "_" + commit, null, 1, false, 0);
         try {
@@ -179,9 +195,10 @@ public class Analyzer {
                     String rawIssueUuid = UUID.randomUUID().toString();
                     //解析location
                     List<Location> locations = getLocations(rawIssueUuid, sonarIssue, repoPath, allLocations);
-//                    if (FileFilter.javaFilenameFilter(component) || locations.isEmpty()) {
-//                        continue;
-//                    }
+                    locationDao.insertLocationList(locations);
+                    if (FileFilter.javaFilenameFilter(component) || locations.isEmpty()) {
+                        continue;
+                    }
                     //解析rawIssue
                     RawIssue rawIssue = getRawIssue(repoUuid, commit, rawIssueUuid, sonarIssue, repoPath);
                     rawIssue.setLocations(locations);
@@ -332,7 +349,7 @@ public class Analyzer {
     public void scan(String repoPath, String repoUuid, String commit){
         JGitHelper jGitHelper = new JGitHelper(repoPath);
         if (jGitHelper.checkout(commit)) {
-            compileAndInvokeTool(jGitHelper.getRepoPath(), repoUuid, commit);
+            compileAndInvokeTool(jGitHelper.getRepoPath(), repoUuid, commit, jGitHelper);
         }
 
 
@@ -345,8 +362,12 @@ public class Analyzer {
     }
 
     @Autowired
-    public void setRestInterfaceManager(RestInterfaceManager restInterfaceManager) {
+    private void setRestInterfaceManager(RestInterfaceManager restInterfaceManager) {
         Analyzer.restInterfaceManager = restInterfaceManager;
     }
 
+    @Autowired
+    private void setLocationDao(LocationDao locationDao){
+        this.locationDao = locationDao;
+    }
 }

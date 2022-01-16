@@ -1,6 +1,6 @@
 package com.example.sonarqubescan.dao;
 
-import com.example.sonarqubescan.Mapper.LocationMapper;
+import com.example.sonarqubescan.mapper.LocationMapper;
 import com.example.sonarqubescan.domin.dbo.Location;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
@@ -16,7 +16,7 @@ import java.util.List;
 public class LocationDao {
     private LocationMapper locationMapper;
 
-    void insertLocationList(List<Location> list){
+    public void insertLocationList(List<Location> list){
         if (list.isEmpty()) {
             return;
         }
