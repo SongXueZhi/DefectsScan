@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.sonarqubescan.Mapper.LocationMapper">
+    <resultMap id="location" type="com.example.sonarqubescan.domin.dbo.Location">
+        <id property="uuid" column="uuid"/>
+        <result property="startLine" column="start_line"/>
+        <result property="endLine" column="end_line"/>
+        <result property="bugLines" column="bug_lines"/>
+        <result property="filePath" column="file_name"/>
+        <result property="rawIssueId" column="rawIssue_uuid"/>
+        <result property="code" column="code"/>
+    </resultMap>
+    <insert id="insertLocationList" parameterType="List">
+        insert into location
+        (
+        uuid,
+        start_line,
+        end_line,
+        bug_lines,
+        file_name,
+        rawIssue_uuid,
+        code,
+        )
+        VALUES
+        <foreach collection="list" item="item" index="index" separator=",">
+            (
+            #{item.uuid},
+            #{item.startLine},
+            #{item.endLine},
+            #{item.bugLines},
+            #{item.filePath},
+            #{item.rawIssueId},
+            #{item.code},
+            )
+        </foreach>
+    </insert>
+
+
+</mapper>

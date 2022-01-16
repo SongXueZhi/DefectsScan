@@ -33,23 +33,6 @@ public class RawIssue {
     private int priority;
 
 
-
-
-
-
-
-
-    /**
-     * 表示 status 是 default情况  在任何一个匹配中该rawIssue没有改变的情况
-     * true: not change  false: change
-     **/
-    boolean notChange = false;
-
-    /**
-     * 多分支匹配的情况下记录是否有分支匹配上过
-     **/
-    boolean onceMapped = false;
-
     @Override
     public String toString() {
         return "{uuid=" + uuid + ",type=" + type + ",tool=" + tool + ",detail=" + detail + "}";

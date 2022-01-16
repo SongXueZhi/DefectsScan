@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.sonarqubescan.Mapper.RawIssueMapper">
+    <resultMap id="rawIssueForScan" type="com.example.sonarqubescan.domin.dbo.RawIssue">
+        <id property="uuid" column="uuid"/>
+        <result property="type" column="type"/>
+        <result property="detail" column="detail"/>
+        <result property="fileName" column="file_name"/>
+        <result property="commitId" column="commit_id"/>
+        <result property="repoUuid" column="repo_uuid"/>
+        <result property="codeLines" column="code_lines"/>
+    </resultMap>
+
+    <insert id="insertRawIssueList" parameterType="list">
+        insert into raw_issue
+        (
+        uuid,
+        type,
+        detail,
+        file_name,
+        repo_uuid,
+        commit_id,
+        code_lines,
+        )
+        VALUES
+        <foreach collection="list" item="item" index="index" separator=",">
+            (
+            #{item.uuid},
+            #{item.type},
+            #{item.detail},
+            #{item.fileName},
+            #{item.repoUuid},
+            #{item.commitId},
+            #{item.codeLines},
+            )
+        </foreach>
+    </insert>
+
+</mapper>

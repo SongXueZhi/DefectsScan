@@ -3,6 +3,7 @@ package com.example.sonarqubescan.scan;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.example.sonarqubescan.component.RestInterfaceManager;
+import com.example.sonarqubescan.dao.RawIssueDao;
 import com.example.sonarqubescan.domin.dbo.Location;
 import com.example.sonarqubescan.domin.dbo.RawIssue;
 import com.example.sonarqubescan.domin.enums.ScanStatusEnum;
@@ -11,12 +12,12 @@ import com.example.sonarqubescan.utils.AstUtil;
 import com.example.sonarqubescan.utils.CompileUtil;
 import com.example.sonarqubescan.utils.DirExplorer;
 import com.example.sonarqubescan.utils.ShUtil;
-import lombok.Generated;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import javax.xml.bind.DatatypeConverter;
-import java.io.FileFilter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,14 +30,14 @@ import java.util.concurrent.TimeUnit;
  * @time: 2022/1/14 4:16 下午
  */
 @Slf4j
-
+@Component
 public class Analyzer {
 
 
 
 
     private static RestInterfaceManager restInterfaceManager;
-    private static IssueAnalyzerDao issueAnalyzerDao;
+    private static RawIssueDao rawIssueDao;
 
     protected List<RawIssue> resultRawIssues = new ArrayList<>();
 
@@ -187,12 +188,15 @@ public class Analyzer {
                     resultRawIssues.add(rawIssue);
                 }
             }
+            rawIssueDao.insertRawIssueList(resultRawIssues);
             log.info("Current commit {}, rawIssue total is {}", commit, resultRawIssues.size());
             return true;
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
+
+
     }
     private RawIssue getRawIssue(String repoUuid, String commit,  String rawIssueUuid, JSONObject issue, String repoPath) {
         //根据ruleId获取rule的name
@@ -333,6 +337,16 @@ public class Analyzer {
 
 
 
+    }
+
+    @Autowired
+    private void setRawIssueDao(RawIssueDao rawIssueDao){
+        Analyzer.rawIssueDao = rawIssueDao;
+    }
+
+    @Autowired
+    public void setRestInterfaceManager(RestInterfaceManager restInterfaceManager) {
+        Analyzer.restInterfaceManager = restInterfaceManager;
     }
 
 }

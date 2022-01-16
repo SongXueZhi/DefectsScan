@@ -43,21 +43,6 @@ public class Location {
 
     private List<Byte> tokens = null;
 
-//    public static List<Location> valueOf(JSONArray locations) {
-//        List<Location> locationList = new ArrayList<>();
-//        for (int i = 0; i < locations.size(); i++) {
-//            JSONObject tempLocation = locations.getJSONObject(i);
-//            Location location = new Location();
-//            location.setUuid(UUID.randomUUID().toString());
-//            location.setBugLines(tempLocation.getString("bug_lines"));
-//            location.setCode(tempLocation.getString("code"));
-//            location.setStartLine(tempLocation.getIntValue("start_line"));
-//            location.setEndLine(tempLocation.getIntValue("end_line"));
-//            location.setMethodName(tempLocation.getString("method_name"));
-//            locationList.add(location);
-//        }
-//        return locationList;
-//    }
 
 
 
