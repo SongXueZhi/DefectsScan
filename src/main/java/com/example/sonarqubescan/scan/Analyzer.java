@@ -7,14 +7,12 @@ import com.example.sonarqubescan.dao.LocationDao;
 import com.example.sonarqubescan.dao.RawIssueDao;
 import com.example.sonarqubescan.domin.dbo.Location;
 import com.example.sonarqubescan.domin.dbo.RawIssue;
-import com.example.sonarqubescan.domin.enums.ScanStatusEnum;
 import com.example.sonarqubescan.jGitHelper.JGitHelper;
 import com.example.sonarqubescan.utils.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 
 import javax.xml.bind.DatatypeConverter;
 import java.io.File;
@@ -346,7 +344,7 @@ public class Analyzer {
         return location;
     }
 
-    public void scan(String repoPath, String repoUuid, String commit){
+    public  void scan(String repoPath, String repoUuid, String commit){
         JGitHelper jGitHelper = new JGitHelper(repoPath);
         if (jGitHelper.checkout(commit)) {
             compileAndInvokeTool(jGitHelper.getRepoPath(), repoUuid, commit, jGitHelper);
