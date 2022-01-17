@@ -11,16 +11,16 @@
         <result property="rawIssueId" column="rawIssue_uuid"/>
         <result property="code" column="code"/>
     </resultMap>
-    <insert id="insertLocationList" parameterType="List">
+    <insert id="insertLocationList" >
         insert into location
         (
         uuid,
         start_line,
         end_line,
         bug_lines,
-        file_name,
-        rawIssue_uuid,
-        code,
+        file_path,
+        rawIssue_id,
+        code
         )
         VALUES
         <foreach collection="list" item="item" index="index" separator=",">
@@ -31,7 +31,7 @@
             #{item.bugLines},
             #{item.filePath},
             #{item.rawIssueId},
-            #{item.code},
+            #{item.code}
             )
         </foreach>
     </insert>

@@ -69,7 +69,7 @@ public class JGitHelper {
             return true;
         } catch (Exception e) {
             log.error("JGitHelper checkout error:{} ", e.getMessage());
-            log.error("begin second checkout {}", commit);
+            log.error("begin second checkout {}", this.REPO_PATH + commit);
             try {
                 // clean for checkOut
                 secondCheckOut(commit);

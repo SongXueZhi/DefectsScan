@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import javax.xml.bind.DatatypeConverter;
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,21 +36,22 @@ public class Analyzer {
     private static RawIssueDao rawIssueDao;
     private LocationDao locationDao;
 
-    protected List<RawIssue> resultRawIssues = new ArrayList<>();
 
     @Value("${binHome}")
-    private String binHome;
+    public String binHome;
+
 
 
     private static final String COMPONENT = "component";
 
 
     public boolean invoke(String repoUuid, String repoPath, String commit) {
-        return ShUtil.executeCommand(binHome + "executeSonar.sh " + repoPath + "_copy " + repoUuid + "_" + commit + " " + commit, 300);
+        log.info("binPath is " + binHome + "executeSonar.sh");
+        return ShUtil.executeCommand(binHome + "executeSonar.sh " + repoPath + " " + repoUuid + "_" + commit + " " + commit, 300);
     }
 
 
-    public void compileAndInvokeTool(String repoPath, String repoUuid, String commit, JGitHelper jGitHelper) {
+    public void compileAndInvokeTool(String repoPath, String repoUuid, String commit, JGitHelper jGitHelper) throws IOException {
 
         // 后续增量编译可以删除
         DirExplorer.deleteRedundantTarget(repoPath);
@@ -63,29 +65,47 @@ public class Analyzer {
         log.info("compile time use {} s, compile success!", (compileTime - startTime) / 1000);
         List<String> fileToScan = jGitHelper.getFilesToScan(commit);
         List<String> targetFileToScans = new ArrayList<>();
+        String allRepoPath = "/home/fdse/user/sxz/projects_meta/";
+        File newRepo = new File(allRepoPath + repoUuid  + "_copy");
+        if(newRepo.mkdir()){
+            log.info("make repo_copy success "+ newRepo.getAbsolutePath());
+        }
+
+
         for(String file : fileToScan){
+            if(!file.contains("src/main/java")){
+                log.warn("exclude------------------------->" + file);
+                continue;
+            }
             String secondPrefix = "target/classes";
             StringBuilder sb = new StringBuilder(secondPrefix);
+
+            String sourcePath = allRepoPath + repoUuid + "/meta/" + file;
+            File source = new File(sourcePath);
+            log.info(source.getAbsolutePath());
+            String filePath  = newRepo.getAbsolutePath();
+            if(source.exists()){
+                FileUtil.copyFileUsingFileChannels(source, FileUtil.createFile(filePath + "/" + file) );
+            }
+
             String firstPrefix = "src/main/java";
             String fileName = StringUtil.removePrefix(file, firstPrefix);
             sb.append(fileName);
-            targetFileToScans.add(sb.toString());
-        }
-        File newRepo = new File(repoPath + "_copy/");
-        if(newRepo.mkdir()){
-            log.info("make repo_copy success "+ repoPath);
-        }
-        for(String file : targetFileToScans){
-            String filePath  = newRepo.getAbsolutePath();
-            File newFilePath = new File(filePath + file);
-            if(newRepo.mkdir()){
-                log.info("make file success" + filePath + file) ;
+            String sb2 = sb.toString();
+            sb2 = sb2.replace(".java",".class");
+            String sourcePath2 = allRepoPath + repoUuid + "/meta/" + sb2;
+            File source2 = new File(sourcePath2);
+            log.info(source2.getAbsolutePath());
+            String filePath2  = newRepo.getAbsolutePath();
+            if(source2.exists()){
+                FileUtil.copyFileUsingFileChannels(source, FileUtil.createFile(filePath2 + "/" + sb2) );
             }
+
         }
 
         //2 invoke tool
         long invokeToolStartTime = System.currentTimeMillis();
-        boolean invokeToolResult = invoke(repoUuid, repoPath, commit);
+        boolean invokeToolResult = invoke(repoUuid, newRepo.getAbsolutePath(), commit);
         if (!invokeToolResult) {
             log.info("invoke tool failed!repo path is {}, commit is {}", repoPath, commit);
             return;
@@ -103,8 +123,8 @@ public class Analyzer {
         long analyzeToolTime = System.currentTimeMillis();
         log.info("analyze raw issues use {} s, analyze success!", (analyzeToolTime - invokeToolTime) / 1000);
 
-        File fileDuplicate = new File(repoPath + "_copy");
-        FileUtil.deleteFile(fileDuplicate);
+
+        FileUtil.deleteFile(newRepo);
 
     }
 
@@ -175,6 +195,7 @@ public class Analyzer {
 
         //获取issue数量
         JSONObject sonarIssueResult = restInterfaceManager.getSonarIssueResults(repoUuid + "_" + commit, null, 1, false, 0);
+        List<RawIssue> resultRawIssues = new ArrayList<>();
         try {
             List<Location> allLocations = new ArrayList<>();
             int pageSize = 100;
@@ -344,7 +365,7 @@ public class Analyzer {
         return location;
     }
 
-    public  void scan(String repoPath, String repoUuid, String commit){
+    public void scan(String repoPath, String repoUuid, String commit) throws IOException {
         JGitHelper jGitHelper = new JGitHelper(repoPath);
         if (jGitHelper.checkout(commit)) {
             compileAndInvokeTool(jGitHelper.getRepoPath(), repoUuid, commit, jGitHelper);

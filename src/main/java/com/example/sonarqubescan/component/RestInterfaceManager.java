@@ -2,6 +2,7 @@ package com.example.sonarqubescan.component;
 
 import com.alibaba.fastjson.JSONObject;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -25,7 +26,8 @@ import java.util.Objects;
 @Slf4j
 public class RestInterfaceManager {
 
-    protected RestTemplate restTemplate;
+
+    protected RestTemplate restTemplate = new RestTemplate();
 
     @Value("${sonar.service.path}")
     private String sonarServicePath;
@@ -145,4 +147,8 @@ public class RestInterfaceManager {
         }
 
     }
+
+
+
+
 }
