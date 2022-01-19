@@ -76,7 +76,7 @@ public class CompileUtil {
     }
 
     public static boolean tryDifferentJdkCompile(String compilePath, String repoUuid, String commit) {
-        String baseCommand = binHome + "mvn-compile.sh " + compilePath.replace("/pom.xml", "") + " " + repoUuid + "_" + commit + " ";
+        String baseCommand = binHome + "mvn-compile2.sh " + compilePath.replace("/pom.xml", "") + " " + repoUuid + "_" + commit + " ";
         for (JdkVersionEnum jdkVersion : JdkVersionEnum.values()) {
             if (ShUtil.executeCommand(baseCommand + jdkVersion.getVersion(), compileMaxWaitTime)) {
                 return true;

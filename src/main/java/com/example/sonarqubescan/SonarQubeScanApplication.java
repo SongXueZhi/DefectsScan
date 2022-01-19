@@ -1,5 +1,6 @@
 package com.example.sonarqubescan;
 
+
 import com.example.sonarqubescan.scan.Analyzer;
 import com.example.sonarqubescan.utils.StringUtil;
 import org.mybatis.spring.annotation.MapperScan;
@@ -9,9 +10,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-
 import java.util.List;
-
 
 
 @MapperScan("com.example.sonarqubescan.mapper")
@@ -39,6 +38,12 @@ public class SonarQubeScanApplication implements ApplicationRunner {
             }
 
         }
+
+//        JGitHelper jGitHelper = new JGitHelper("/Users/keyon/Documents/bigDataPlatform/issue/benchmarkTest/benchmarkissuetest");
+//        jGitHelper.getAllDiffFilePair("9795a650775fdbe9a58c7f2af58a09dcb104ea65");
+//        System.out.println(jGitHelper.getFileEdits().get("src/main/java/org/example/Match.java"));
+
+
     }
     @Autowired
     public void setAnalyzer(Analyzer analyzer){

@@ -8,19 +8,19 @@ import org.eclipse.jgit.api.ResetCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.*;
 import org.eclipse.jgit.lib.*;
+import org.eclipse.jgit.patch.FileHeader;
+import org.eclipse.jgit.patch.HunkHeader;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.TreeWalk;
+import org.eclipse.jgit.util.io.DisabledOutputStream;
 
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @description:
@@ -39,6 +39,12 @@ public class JGitHelper {
     protected Git git;
 
     protected String REPO_PATH;
+
+    public Map<String, List<Edit>> fileEdits = new HashMap<>();
+
+    public Map<String, List<Edit>> getFileEdits(){
+        return fileEdits;
+    }
 
     public String getRepoPath(){
         return REPO_PATH;
@@ -146,7 +152,10 @@ public class JGitHelper {
                     newTreeDiff.reset(reader, repository.resolve(commit + "^{tree}"));
                     //call git diff command
                     List<DiffEntry> diffs = getDiffEntry(getRevCommit(p.getName()), getRevCommit(commit), 60);
+                    //获得hunk
+
                     for (DiffEntry diff : diffs) {
+                        fileEdits.put(diff.getNewPath(), getEdits(diff));
                         switch (diff.getChangeType()) {
                             case ADD:
                                 addFiles.add(diff.getNewPath());
@@ -175,6 +184,20 @@ public class JGitHelper {
         filesToScan.addAll(diffFile.getChangeFiles().values());
 
         return filesToScan;
+    }
+
+    private List<Edit> getEdits(DiffEntry entry) throws Exception {
+        List<Edit> result = new LinkedList<Edit>();
+        try (DiffFormatter diffFormatter = new DiffFormatter(DisabledOutputStream.INSTANCE)) {
+            diffFormatter.setRepository(repository);
+            FileHeader fileHeader = diffFormatter.toFileHeader(entry);
+            List<? extends HunkHeader> hunkHeaders = fileHeader.getHunks();
+            for (HunkHeader hunk : hunkHeaders) {
+                result.addAll(hunk.toEditList());
+            }
+        }
+        return result;
+
     }
 
 

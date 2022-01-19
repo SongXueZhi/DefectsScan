@@ -10,6 +10,7 @@ import com.example.sonarqubescan.domin.dbo.RawIssue;
 import com.example.sonarqubescan.jGitHelper.JGitHelper;
 import com.example.sonarqubescan.utils.*;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.jgit.diff.Edit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -20,8 +21,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * @description:
@@ -36,20 +39,19 @@ public class Analyzer {
     private static RawIssueDao rawIssueDao;
     private LocationDao locationDao;
 
+    //private JGitHelper jGitHelper;
 
     @Value("${binHome}")
     public String binHome;
 
-
+    private JGitHelper jGitHelper;
 
     private static final String COMPONENT = "component";
 
-
     public boolean invoke(String repoUuid, String repoPath, String commit) {
-        log.info("binPath is " + binHome + "executeSonar.sh");
-        return ShUtil.executeCommand(binHome + "executeSonar.sh " + repoPath + " " + repoUuid + "_" + commit + " " + commit, 300);
+        log.info("binPath is " + binHome + "executeSonar2.sh");
+        return ShUtil.executeCommand(binHome + "executeSonar2.sh " + repoPath + " " + repoUuid + "_" + commit + " " + commit, 300);
     }
-
 
     public void compileAndInvokeTool(String repoPath, String repoUuid, String commit, JGitHelper jGitHelper) throws IOException {
 
@@ -71,7 +73,6 @@ public class Analyzer {
             log.info("make repo_copy success "+ newRepo.getAbsolutePath());
         }
 
-
         for(String file : fileToScan){
             if(!file.contains("src/main/java")){
                 log.warn("exclude------------------------->" + file);
@@ -87,7 +88,6 @@ public class Analyzer {
             if(source.exists()){
                 FileUtil.copyFileUsingFileChannels(source, FileUtil.createFile(filePath + "/" + file) );
             }
-
             String firstPrefix = "src/main/java";
             String fileName = StringUtil.removePrefix(file, firstPrefix);
             sb.append(fileName);
@@ -134,7 +134,7 @@ public class Analyzer {
         boolean isChanged = false;
         try {
             // 最多等待200秒
-            for (int i = 1; i <= 100; i++) {
+            for (int i = 1; i <= 15; i++) {
                 TimeUnit.SECONDS.sleep(2);
                 JSONObject sonarIssueResults = restInterfaceManager.getSonarIssueResults(repoUuid + "_" + commit, null, 1, false, 0);
                 if (sonarIssueResults.getInteger("total") != 0) {
@@ -214,7 +214,8 @@ public class Analyzer {
                     String rawIssueUuid = UUID.randomUUID().toString();
                     //解析location
                     List<Location> locations = getLocations(rawIssueUuid, sonarIssue, repoPath, allLocations);
-                    locationDao.insertLocationList(locations);
+                    Map<String, List<Edit>> fileEdits = jGitHelper.getFileEdits();
+                    locationDao.insertLocationList(getFinalLocation(locations, fileEdits));
                     if (FileFilter.javaFilenameFilter(component) || locations.isEmpty()) {
                         continue;
                     }
@@ -261,16 +262,12 @@ public class Analyzer {
         rawIssue.setCommitId(commit);
         rawIssue.setRepoUuid(repoUuid);
 
-//        String developerUniqueName = developerUniqueNameUtil.getDeveloperUniqueName(repoPath, commit, repoUuid);
-//
-//        rawIssue.setDeveloperName(developerUniqueName);
-//        rawIssue.setPriority(getPriorityByRawIssue(rawIssue));
         return rawIssue;
     }
 
-    public List<Location> getLocations(String rawIssueUuid, JSONObject issue, String repoPath, List<Location> allLocations) throws Exception {
-        int startLine = 0;
-        int endLine = 0;
+    public List<Location> getLocations(String rawIssueUuid, JSONObject issue, String repoPath, List<Location> allLocations)  {
+        int startLine;
+        int endLine;
         String sonarPath;
         String[] sonarComponents;
         String filePath = null;
@@ -355,25 +352,39 @@ public class Analyzer {
         location.setBugLines(startLine + "-" + endLine);
         location.setFilePath(filePath);
         location.setRawIssueId(rawIssueId);
-        // todo location 方法名解析
-//        Object[] methodNameAndOffset = AstParserUtil.findMethodNameAndOffset(repoPath + "/" + filePath, startLine, endLine);
-//        if (methodNameAndOffset != null) {
-//            location.setMethodName((String) methodNameAndOffset[0]);
-//            location.setOffset((int) methodNameAndOffset[1]);
-//        }
+
+
 
         return location;
     }
 
+    public boolean lineInEdit(int lineNum, int as, int ae){
+        return lineNum > as && lineNum <= ae;
+    }
+    public boolean isCurCommitSetIssue(int lineNUm, List<Edit> edits){
+        for(Edit edit : edits){
+            if(edit.getType().equals(Edit.Type.INSERT) || edit.getType().equals(Edit.Type.REPLACE) ){
+                if(lineInEdit(lineNUm, edit.getBeginB(), edit.getEndB())){
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    public List<Location> getFinalLocation(List<Location> locations, Map<String, List<Edit>> fileEdits){
+
+        return locations.stream().filter(location -> isCurCommitSetIssue(location.getStartLine(), fileEdits.get(location.getFilePath())))
+                .collect(Collectors.toList());
+    }
+
     public void scan(String repoPath, String repoUuid, String commit) throws IOException {
-        JGitHelper jGitHelper = new JGitHelper(repoPath);
+        jGitHelper = new JGitHelper(repoPath);
         if (jGitHelper.checkout(commit)) {
             compileAndInvokeTool(jGitHelper.getRepoPath(), repoUuid, commit, jGitHelper);
         }
-
-
-
     }
+
+
 
     @Autowired
     private void setRawIssueDao(RawIssueDao rawIssueDao){
